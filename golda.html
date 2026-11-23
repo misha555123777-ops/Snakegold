@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🏆 GOLD SNAKE TAP</title>
+<style>
+  body {
+    background: #1a0b2e;
+    color: #fff;
+    font-family: 'Arial Black', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  h1 {
+    color: #ffd700;
+    text-shadow: 0 0 10px #ffaa00;
+    margin-bottom: 10px;
+    font-size: 24px;
+    text-transform: uppercase;
+  }
+
+  .game-container {
+    position: relative;
+    border: 4px solid #ffd700;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+    border-radius: 8px;
+    background: #000;
+  }
+
+  canvas { display: block; }
+
+  .score-board {
+    font-size: 20px;
+    margin-top: 10px;
+    color: #fff;
+  }
+
+  .controls-hint {
+    margin-top: 15px;
+    font-size: 12px;
+    opacity: 0.6;
+    text-align: center;
+  }
+
+  #startBtn {
+    margin-top: 20px;
+    padding: 15px 30px;
+    font-size: 18px;
+    background: linear-gradient(45deg, #ffd700, #ffaa00);
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #000;
+    box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+    transition: transform 0.1s;
+  }
+  
+  #startBtn:active { transform: scale(0.95); }
+
+  .shake {
+    animation: shake 0.2s cubic-bezier(.36,.07,.19,.97) both;
+  }
+
+  @keyframes shake {
+    10%, 90% { transform: translate3d(-2px, 0, 0); }
+    20%, 80% { transform: translate3d(4px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+    40%, 60% { transform: translate3d(6px, 0, 0); }
+  }
+</style>
+</head>
+<body>
+
+  <h1>🏆 GOLD SNAKE TAP 🏆</h1>
+  
+  <div class="game-container" id="gameContainer">
+    <canvas id="gameCanvas" width="300" height="300"></canvas>
+  </div>
+
+  <div class="score-board">СЧЕТ: <span id="score">0</span> 💰</div>
+  
+  <button id="startBtn" onclick="startGame()">НАЧАТЬ ФАРМ</button>
+  
+  <div class="controls-hint">
+    Каждый свайп = ГОЛД!<br>
+    ⚠️ Включи звук!
+  </div>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const container = document.getElementById('gameContainer');
+  const btn = document.getElementById('startBtn');
+
+  // Загружаем локальный звук
+  const goldSound = new Audio('gold.mp3');
+  goldSound.load();
+
+  const gridSize = 15;
+  let tileCountX, tileCountY;
+  
+  let snake = [];
+  let food = {};
+  let dx = 0;
+  let dy = 0;
+  let nextDx = 0;
+  let nextDy = 0;
+  let score = 0;
+  let gameInterval;
+  let isPlaying = false;
+
+  // 🔊 ВОСПРОИЗВЕДЕНИЕ ЗВУКА НА КАЖДЫЙ ТАПТ
+  function playGold() {
+    const soundClone = goldSound.cloneNode();
+    soundClone.volume = 1.0;
+    soundClone.play().catch(e => {});
+    
+    // Тряска экрана
+    container.classList.remove('shake');
+    void container.offsetWidth; 
+    container.classList.add('shake');
+  }
+
+  function resizeCanvas() {
+    const size = Math.min(window.innerWidth - 40, 400);
+    canvas.width = size;
+    canvas.height = size;
+    tileCountX = Math.floor(canvas.width / gridSize);
+    tileCountY = Math.floor(canvas.height / gridSize);
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  function startGame() {
+    if (isPlaying) return;
+    
+    snake = [{x: Math.floor(tileCountX/2), y: Math.floor(tileCountY/2)}];
+    score = 0;
+    dx = 1; dy = 0;
+    nextDx = 1; nextDy = 0;
+    scoreEl.textContent = score;
+    isPlaying = true;
+    btn.style.display = 'none';
+    
+    spawnFood();
+    gameInterval = setInterval(update, 100);
+  }
+
+  function spawnFood() {
+    food = {
+      x: Math.floor(Math.random() * tileCountX),
+      y: Math.floor(Math.random() * tileCountY)
+    };
+    for (let part of snake) {
+      if (part.x === food.x && part.y === food.y) spawnFood();
+    }
+  }
+
+  function update() {
+    dx = nextDx;
+    dy = nextDy;
+
+    const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+    if (head.x < 0 || head.x >= tileCountX || head.y < 0 || head.y >= tileCountY ||
+        snake.some(s => s.x === head.x && s.y === head.y)) {
+      gameOver();
+      return;
+    }
+
+    snake.unshift(head);
+
+    if (head.x === food.x && head.y === food.y) {
+      score += 10;
+      scoreEl.textContent = score;
+      spawnFood();
+    } else {
+      snake.pop();
+    }
+
+    draw();
+  }
+
+  function draw() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = '#ffd700';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#ffaa00';
+    ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+    ctx.shadowBlur = 0;
+
+    snake.forEach((part, index) => {
+      ctx.fillStyle = index === 0 ? '#fff' : '#ffd700';
+      ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 2, gridSize - 2);
+    });
+  }
+
+  function gameOver() {
+    clearInterval(gameInterval);
+    isPlaying = false;
+    btn.style.display = 'block';
+    btn.textContent = '💀 РЕСТАРТ';
+    alert(`Фарм окончен! Твой счет: ${score} золота`);
+  }
+
+  // Обработка свайпов с воспроизведением звука НА КАЖДОЕ ДВИЖЕНИЕ
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  canvas.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    e.preventDefault();
+  }, {passive: false});
+
+  canvas.addEventListener('touchend', e => {
+    if (!isPlaying) return;
+    
+    const diffX = e.changedTouches[0].clientX - touchStartX;
+    const diffY = e.changedTouches[0].clientY - touchStartY;
+
+    let moved = false;
+
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      if (diffX > 0 && dx !== -1) { nextDx = 1; nextDy = 0; moved = true; }
+      else if (diffX < 0 && dx !== 1) { nextDx = -1; nextDy = 0; moved = true; }
+    } else {
+      if (diffY > 0 && dy !== -1) { nextDx = 0; nextDy = 1; moved = true; }
+      else if (diffY < 0 && dy !== 1) { nextDx = 0; nextDy = -1; moved = true; }
+    }
+
+    // 🔊 ЗВУК И ТРЯСКА ПРИ КАЖДОМ УСПЕШНОМ СВАЙПЕ
+    if (moved) {
+      playGold();
+    }
+    
+    e.preventDefault();
+  }, {passive: false});
+
+  // Клавиатура тоже издаёт звук
+  document.addEventListener('keydown', e => {
+    if (!isPlaying) return;
+    let moved = false;
+    
+    if (e.key === 'ArrowUp' && dy !== 1) { nextDx = 0; nextDy = -1; moved = true; }
+    if (e.key === 'ArrowDown' && dy !== -1) { nextDx = 0; nextDy = 1; moved = true; }
+    if (e.key === 'ArrowLeft' && dx !== 1) { nextDx = -1; nextDy = 0; moved = true; }
+    if (e.key === 'ArrowRight' && dx !== -1) { nextDx = 1; nextDy = 0; moved = true; }
+
+    if (moved) playGold();
+  });
+</script>
+</body>
+</html>
